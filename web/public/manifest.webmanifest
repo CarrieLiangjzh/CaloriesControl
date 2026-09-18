@@ -1,0 +1,20 @@
+{
+  "name": "热量控制",
+  "short_name": "热量控制",
+  "description": "自用饮食与健身闭环：拍照记账，快捷指令同步 Apple Watch 消耗。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f1ea",
+  "theme_color": "#2f6f4e",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
