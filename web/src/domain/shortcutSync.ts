@@ -33,6 +33,21 @@ export function localDateISO(now = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+/** Shortcuts often insert 2026年9月18日 or 2026/9/18 instead of ISO. */
+export function normalizeSyncDate(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  const iso = trimmed.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (iso) {
+    return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
+  }
+  const zh = trimmed.match(/^(\d{4})年(\d{1,2})月(\d{1,2})/);
+  if (zh) {
+    return `${zh[1]}-${zh[2].padStart(2, "0")}-${zh[3].padStart(2, "0")}`;
+  }
+  return trimmed;
+}
+
 export function shiftLocalDateISO(date: string, days: number): string {
   const [year, month, day] = date.split("-").map(Number);
   return localDateISO(new Date(year, month - 1, day + days));
@@ -46,8 +61,7 @@ export function parseSyncParams(
   const fetchedAt = (options?.now ?? new Date()).toISOString();
   const source = options?.source ?? "shortcut";
 
-  const date = params.get("date")?.trim() ?? "";
-  if (!date) return { ok: false, error: "missing_date" };
+  const date = normalizeSyncDate(params.get("date") ?? "") || today;
   if (date !== today) return { ok: false, error: "wrong_date" };
 
   const rawKcal = params.get("activeKcal");
@@ -124,7 +138,7 @@ export function syncErrorMessage(error: SyncParseError): string {
     case "invalid_kcal":
       return "消耗数字无效。请用手填，对照健身 App 活动环的千卡。";
     case "missing_date":
-      return "回跳缺少日期。请按说明把 date 加进打开的网址。";
+      return "回跳缺少日期。把网址改成 网站#/sync/今天日期/热量数字，不要用问号和 &。";
     case "wrong_date":
       return "这是其他日期的链接，没有写入。请重新同步，或手填今天的消耗。";
     case "invalid_workouts":

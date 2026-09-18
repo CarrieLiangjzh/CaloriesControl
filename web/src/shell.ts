@@ -40,7 +40,7 @@ export function mountShell(root: HTMLElement): void {
   }
 
   const render = (): void => {
-    paint(page, parseRoute());
+    paint(page, parseRoute(window.location.hash, window.location.search));
   };
 
   window.addEventListener("hashchange", render);

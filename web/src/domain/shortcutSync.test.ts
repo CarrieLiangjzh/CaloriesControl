@@ -51,6 +51,20 @@ describe("parseSyncParams", () => {
     ]);
   });
 
+  it("uses today when the date query was stripped", () => {
+    const params = new URLSearchParams("activeKcal=420");
+    const result = parseSyncParams(params, { today, now });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.snapshot.date).toBe(today);
+  });
+
+  it("accepts a Chinese formatted date", () => {
+    const params = new URLSearchParams("activeKcal=420&date=2026年9月16日");
+    const result = parseSyncParams(params, { today, now });
+    expect(result.ok).toBe(true);
+  });
+
   it("rejects a link from another day", () => {
     const params = new URLSearchParams("activeKcal=420&date=2026-09-15");
     expect(parseSyncParams(params, { today })).toEqual({
