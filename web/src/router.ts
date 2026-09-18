@@ -47,6 +47,10 @@ function applySyncPathParams(
 ): void {
   const first = parts[1];
   const second = parts[2];
+  if (first === "failed") {
+    params.set("health", "failed");
+    return;
+  }
   if (first && /^\d{4}-\d{2}-\d{2}$/.test(first)) {
     if (!params.get("date")) params.set("date", first);
     if (second && !params.get("activeKcal")) params.set("activeKcal", second);

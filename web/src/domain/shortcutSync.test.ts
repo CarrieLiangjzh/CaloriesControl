@@ -103,8 +103,17 @@ describe("parseWorkouts", () => {
 describe("runShortcutHref", () => {
   it("passes the site origin as shortcut input", () => {
     const href = runShortcutHref("http://192.168.31.153:5173/");
-    expect(href.startsWith("shortcuts://run-shortcut?name=")).toBe(true);
+    expect(href.startsWith("shortcuts://x-callback-url/run-shortcut?")).toBe(
+      true,
+    );
     expect(href).toContain(encodeURIComponent("热量控制-同步今日消耗"));
     expect(href).toContain(encodeURIComponent("http://192.168.31.153:5173/"));
+  });
+
+  it("returns to the site when the shortcut errors or is cancelled", () => {
+    const href = runShortcutHref("http://192.168.31.153:5173/");
+    expect(href).toContain(
+      encodeURIComponent("http://192.168.31.153:5173/#/sync/failed"),
+    );
   });
 });

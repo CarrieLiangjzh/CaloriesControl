@@ -8,6 +8,17 @@ import {
 import { renderShortcutGuide } from "./shortcutGuide";
 
 export function renderSync(params: URLSearchParams): string {
+  if (params.get("health") === "failed") {
+    return `
+      <section class="page">
+        <p class="eyebrow">同步</p>
+        <h1>没读到手表消耗</h1>
+        <p class="lead">快捷指令获取失败（手表没电、没戴、或健康权限未开）。没有写入。请对照健身 App 活动环手填，建议仍会出。</p>
+        <p><a class="button" href="#/today">去手填</a></p>
+      </section>
+    `;
+  }
+
   const hasPayload = Boolean(
     params.get("activeKcal") || params.get("date") || params.get("workouts"),
   );
@@ -47,6 +58,7 @@ export function renderSync(params: URLSearchParams): string {
 }
 
 export function bindSync(params: URLSearchParams): void {
+  if (params.get("health") === "failed") return;
   const hasPayload = Boolean(
     params.get("activeKcal") || params.get("date") || params.get("workouts"),
   );

@@ -152,8 +152,13 @@ export function callbackBaseUrl(
   return `${locationLike.origin}${locationLike.pathname.replace(/index\.html$/i, "")}`;
 }
 
+export function healthSyncFailedUrl(baseUrl = callbackBaseUrl()): string {
+  return `${baseUrl}#/sync/failed`;
+}
+
 export function runShortcutHref(baseUrl = callbackBaseUrl()): string {
   const name = encodeURIComponent(SHORTCUT_NAME);
   const input = encodeURIComponent(baseUrl);
-  return `shortcuts://run-shortcut?name=${name}&input=${input}`;
+  const fallback = encodeURIComponent(healthSyncFailedUrl(baseUrl));
+  return `shortcuts://x-callback-url/run-shortcut?name=${name}&input=${input}&x-cancel=${fallback}&x-error=${fallback}`;
 }

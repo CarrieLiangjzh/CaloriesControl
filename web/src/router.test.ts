@@ -20,4 +20,10 @@ describe("parseRoute", () => {
     expect(route.name).toBe("sync");
     expect(route.params.get("activeKcal")).toBeNull();
   });
+
+  it("marks a failed health callback", () => {
+    const route = parseRoute("#/sync/failed");
+    expect(route.name).toBe("sync");
+    expect(route.params.get("health")).toBe("failed");
+  });
 });
