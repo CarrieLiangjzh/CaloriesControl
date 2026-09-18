@@ -80,15 +80,6 @@ export function bindToday(root: HTMLElement): void {
   const resolved = resolveTodayAdvice();
   if (resolved) maybePolishAdvice(resolved);
 
-  const syncLink = root.querySelector("[data-run-shortcut]");
-  if (syncLink instanceof HTMLAnchorElement) {
-    syncLink.addEventListener("click", (event) => {
-      if (!isAppleMobile()) return;
-      event.preventDefault();
-      window.location.href = runShortcutHref();
-    });
-  }
-
   const form = root.querySelector("#manual-health-form");
   if (!(form instanceof HTMLFormElement)) return;
   const status = root.querySelector("#manual-health-status");
