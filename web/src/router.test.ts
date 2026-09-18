@@ -9,6 +9,12 @@ describe("parseRoute", () => {
     expect(route.params.get("activeKcal")).toBe("387");
   });
 
+  it("reads a locale-formatted shortcut callback", () => {
+    const route = parseRoute("#/sync/18-09-2026/153,381");
+    expect(route.params.get("date")).toBe("18-09-2026");
+    expect(route.params.get("activeKcal")).toBe("153,381");
+  });
+
   it("keeps hash kcal when Shortcuts peels date into the query string", () => {
     const route = parseRoute("#/sync?activeKcal=387", "?date=2026-09-18");
     expect(route.params.get("activeKcal")).toBe("387");

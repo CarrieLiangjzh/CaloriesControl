@@ -65,6 +65,15 @@ describe("parseSyncParams", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("accepts day-first dates and decimal-comma kcal from Shortcuts", () => {
+    const params = new URLSearchParams("activeKcal=153,381&date=16-09-2026");
+    const result = parseSyncParams(params, { today, now });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.snapshot.date).toBe(today);
+    expect(result.snapshot.activeKcal).toBe(153);
+  });
+
   it("rejects a link from another day", () => {
     const params = new URLSearchParams("activeKcal=420&date=2026-09-15");
     expect(parseSyncParams(params, { today })).toEqual({
@@ -103,17 +112,8 @@ describe("parseWorkouts", () => {
 describe("runShortcutHref", () => {
   it("passes the site origin as shortcut input", () => {
     const href = runShortcutHref("http://192.168.31.153:5173/");
-    expect(href.startsWith("shortcuts://x-callback-url/run-shortcut?")).toBe(
-      true,
-    );
+    expect(href.startsWith("shortcuts://run-shortcut?name=")).toBe(true);
     expect(href).toContain(encodeURIComponent("热量控制-同步今日消耗"));
     expect(href).toContain(encodeURIComponent("http://192.168.31.153:5173/"));
-  });
-
-  it("returns to the site when the shortcut errors or is cancelled", () => {
-    const href = runShortcutHref("http://192.168.31.153:5173/");
-    expect(href).toContain(
-      encodeURIComponent("http://192.168.31.153:5173/#/sync/failed"),
-    );
   });
 });

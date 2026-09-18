@@ -1,3 +1,5 @@
+import { isSyncDateToken } from "./domain/shortcutSync";
+
 export type RouteName = "today" | "food" | "workout" | "profile" | "sync";
 
 export type AppRoute = {
@@ -51,12 +53,12 @@ function applySyncPathParams(
     params.set("health", "failed");
     return;
   }
-  if (first && /^\d{4}-\d{2}-\d{2}$/.test(first)) {
+  if (first && isSyncDateToken(first)) {
     if (!params.get("date")) params.set("date", first);
     if (second && !params.get("activeKcal")) params.set("activeKcal", second);
     return;
   }
-  if (first && !params.get("activeKcal") && /^\d+(\.\d+)?$/.test(first)) {
+  if (first && !params.get("activeKcal") && /^\d+([.,]\d+)?$/.test(first)) {
     params.set("activeKcal", first);
   }
 }

@@ -33,7 +33,7 @@ export function localDateISO(now = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
-/** Shortcuts often insert 2026年9月18日 or 2026/9/18 instead of ISO. */
+/** Shortcuts often insert 2026年9月18日, 18-09-2026, or 2026/9/18 instead of ISO. */
 export function normalizeSyncDate(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "";
@@ -45,7 +45,44 @@ export function normalizeSyncDate(raw: string): string {
   if (zh) {
     return `${zh[1]}-${zh[2].padStart(2, "0")}-${zh[3].padStart(2, "0")}`;
   }
+  const yearLast = trimmed.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (yearLast) {
+    const first = Number(yearLast[1]);
+    const second = Number(yearLast[2]);
+    const year = yearLast[3];
+    const dayFirst = first > 12 && second <= 12;
+    const monthFirst = second > 12 && first <= 12;
+    const day = dayFirst || !monthFirst ? first : second;
+    const month = dayFirst || !monthFirst ? second : first;
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  }
   return trimmed;
+}
+
+export function isSyncDateToken(raw: string): boolean {
+  const trimmed = raw.trim();
+  return (
+    /^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}$/.test(trimmed) ||
+    /^\d{1,2}[-/.]\d{1,2}[-/.]\d{4}$/.test(trimmed)
+  );
+}
+
+/** Locale sums often look like 153,381 (decimal comma) or 153.381. */
+export function parseActiveKcal(raw: string): number | null {
+  const trimmed = raw.trim().replace(/\s/g, "").replace(/kcal$/i, "");
+  if (!trimmed) return null;
+  const candidates = [
+    Number(trimmed.replace(",", ".")),
+    Number(trimmed.replace(/,/g, "")),
+  ];
+  for (const value of candidates) {
+    if (Number.isFinite(value) && value >= 0 && value <= 20000) {
+      return value;
+    }
+  }
+  return null;
 }
 
 export function shiftLocalDateISO(date: string, days: number): string {
@@ -68,8 +105,8 @@ export function parseSyncParams(
   if (rawKcal === null || rawKcal.trim() === "") {
     return { ok: false, error: "missing_kcal" };
   }
-  const activeKcal = Number(rawKcal);
-  if (!Number.isFinite(activeKcal) || activeKcal < 0 || activeKcal > 20000) {
+  const activeKcal = parseActiveKcal(rawKcal);
+  if (activeKcal === null) {
     return { ok: false, error: "invalid_kcal" };
   }
 
@@ -152,13 +189,8 @@ export function callbackBaseUrl(
   return `${locationLike.origin}${locationLike.pathname.replace(/index\.html$/i, "")}`;
 }
 
-export function healthSyncFailedUrl(baseUrl = callbackBaseUrl()): string {
-  return `${baseUrl}#/sync/failed`;
-}
-
 export function runShortcutHref(baseUrl = callbackBaseUrl()): string {
   const name = encodeURIComponent(SHORTCUT_NAME);
   const input = encodeURIComponent(baseUrl);
-  const fallback = encodeURIComponent(healthSyncFailedUrl(baseUrl));
-  return `shortcuts://x-callback-url/run-shortcut?name=${name}&input=${input}&x-cancel=${fallback}&x-error=${fallback}`;
+  return `shortcuts://run-shortcut?name=${name}&input=${input}`;
 }
