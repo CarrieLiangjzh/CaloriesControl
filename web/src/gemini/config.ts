@@ -17,3 +17,9 @@ export const ADVICE_POLISH_PROMPT = `你是中文健身饮食助理。只润色 
 - 不得建议摄入远低于安全下限
 只返回 JSON：{"dietDetails":["..."],"trainingDetail":"..."}
 dietDetails 与输入 diet 数组等长、按相同顺序。`;
+
+export const FOOD_TEXT_ESTIMATE_PROMPT = `你是营养估算助手。根据中文食物名称和用户填写的份量，估算这一份的营养。
+份量单位：g=克，ml=毫升，piece=个数。
+只返回一个 JSON 对象，不要 markdown，不要解释。字段：
+{"name":"中文菜名","grams":估计克数,"kcal":热量千卡,"protein":蛋白质克,"carbs":碳水克,"fat":脂肪克,"confidence":0到1的把握}
+毫升液体可按密度接近 1 换成克。若名称含糊，confidence 取 0.4 以下。`;

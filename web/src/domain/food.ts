@@ -1,3 +1,4 @@
+export type FoodAmountUnit = "g" | "ml" | "piece";
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 export type FoodSource = "photo" | "manual";
 
@@ -13,6 +14,9 @@ export type FoodEntry = {
   fat: number;
   source: FoodSource;
   confidence?: number;
+  amount?: number;
+  unit?: FoodAmountUnit;
+  kcalEstimated?: boolean;
 };
 
 export type FoodDraft = {
@@ -85,6 +89,20 @@ export function newFoodId(now = new Date()): string {
     return crypto.randomUUID();
   }
   return `food-${now.getTime()}-${Math.floor(Math.random() * 10000)}`;
+}
+
+export function parseFoodAmountUnit(value: string): FoodAmountUnit {
+  if (value === "ml" || value === "piece") return value;
+  return "g";
+}
+
+export function formatFoodPortion(entry: FoodEntry): string {
+  if (entry.amount && entry.unit) {
+    const unitLabel =
+      entry.unit === "g" ? "克" : entry.unit === "ml" ? "毫升" : "个";
+    return `${entry.amount} ${unitLabel}`;
+  }
+  return `${entry.grams} 克`;
 }
 
 function round1(value: number): number {

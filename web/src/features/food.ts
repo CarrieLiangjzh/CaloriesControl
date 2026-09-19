@@ -5,19 +5,23 @@ import { loadProfile } from "../data/profileStore";
 import { escapeHtml } from "../dom/escapeHtml";
 import {
   defaultMealType,
+  formatFoodPortion,
   mealLabel,
   newFoodId,
+  parseFoodAmountUnit,
   scaleNutrition,
   sumFood,
+  type FoodAmountUnit,
   type FoodDraft,
   type FoodEntry,
   type MealType,
 } from "../domain/food";
-import { analysisToDraft } from "../domain/foodAnalysis";
+import { analysisToDraft, type FoodAnalysisJson } from "../domain/foodAnalysis";
+import { estimateManualFood, macrosFromKcal, type ManualFoodEstimate } from "../domain/foodEstimate";
 import { computeDailyTargets } from "../domain/goalMath";
 import { localDateISO } from "../domain/shortcutSync";
 import { isWeChatBrowser } from "../env/display";
-import { analyzeFoodPhoto } from "../gemini/client";
+import { analyzeFoodPhoto, estimateFoodFromText } from "../gemini/client";
 
 const MAX_BYTES = 12 * 1024 * 1024;
 
@@ -69,22 +73,34 @@ function renderDiary(): string {
       </article>
       <form id="manual-food-form" class="stack">
         <h2>手填一餐</h2>
+        <p>写名称和数量即可。热量可空，空着会按名称估算。</p>
         <label class="field">
           <span>名称</span>
-          <input name="name" type="text" maxlength="80" required placeholder="例如：鸡胸沙拉" />
+          <input name="name" type="text" maxlength="80" required placeholder="例如：鸡胸沙拉、拿铁" />
         </label>
         <label class="field">
           <span>餐次</span>
           <select name="mealType">${mealOptions(defaultMealType())}</select>
         </label>
+        <div class="amount-row">
+          <label class="field">
+            <span>数量</span>
+            <input name="amount" type="number" inputmode="decimal" min="0.1" max="5000" step="0.1" placeholder="100" />
+          </label>
+          <label class="field">
+            <span>单位</span>
+            <select name="unit">
+              <option value="g" selected>克</option>
+              <option value="ml">毫升</option>
+              <option value="piece">个</option>
+            </select>
+          </label>
+        </div>
         <label class="field">
-          <span>克数（可空）</span>
-          <input name="grams" type="number" inputmode="decimal" min="1" max="5000" step="1" />
+          <span>热量 kcal（可空）</span>
+          <input name="kcal" type="number" inputmode="decimal" min="0" max="5000" step="1" placeholder="不填则估算" />
         </label>
-        <label class="field">
-          <span>热量 kcal</span>
-          <input name="kcal" type="number" inputmode="decimal" min="0" max="5000" step="1" required />
-        </label>
+        <p id="manual-estimate" class="hint">填写名称和数量后，会按名称估算热量。</p>
         <div class="macro-row">
           <label class="field">
             <span>蛋白 g</span>
@@ -99,6 +115,7 @@ function renderDiary(): string {
             <input name="fat" type="number" inputmode="decimal" min="0" max="400" step="0.1" />
           </label>
         </div>
+        <p id="manual-food-status" class="status" hidden></p>
         <button type="submit" class="button">保存手填</button>
       </form>
     </section>
@@ -164,28 +181,188 @@ function bindDiary(root: HTMLElement): void {
 
   const form = root.querySelector("#manual-food-form");
   if (!(form instanceof HTMLFormElement)) return;
+  const refreshPreview = (): void => {
+    updateAmountPlaceholder(form);
+    refreshManualPreview(form);
+  };
+  form.addEventListener("input", refreshPreview);
+  form.addEventListener("change", refreshPreview);
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    const data = new FormData(form);
-    const name = String(data.get("name") ?? "").trim();
-    const kcal = Number(data.get("kcal"));
-    if (!name || !Number.isFinite(kcal) || kcal < 0) return;
-    const gramsRaw = String(data.get("grams") ?? "").trim();
-    const grams = gramsRaw ? Number(gramsRaw) : 100;
-    addFoodEntry({
-      id: newFoodId(),
-      date: localDateISO(),
-      mealType: asMealType(String(data.get("mealType"))),
-      name,
-      grams: Number.isFinite(grams) && grams > 0 ? grams : 100,
-      kcal: Math.round(kcal),
-      protein: Number(data.get("protein") || 0) || 0,
-      carbs: Number(data.get("carbs") || 0) || 0,
-      fat: Number(data.get("fat") || 0) || 0,
-      source: "manual",
-    });
-    refreshFoodPage();
+    void saveManualMeal(form);
   });
+  refreshPreview();
+}
+
+async function saveManualMeal(form: HTMLFormElement): Promise<void> {
+  const status = form.querySelector("#manual-food-status");
+  const submit = form.querySelector('button[type="submit"]');
+  const values = readManualForm(form);
+  if (!values.name) {
+    setStatus(status, "请填写名称。", false);
+    return;
+  }
+  if (values.kcalText && optionalNumber(values.kcalText) === null) {
+    setStatus(status, "热量数字无效。可留空让应用估算。", false);
+    return;
+  }
+
+  let model: FoodAnalysisJson | null = null;
+  const kcalFilled = optionalNumber(values.kcalText);
+  if (kcalFilled === null) {
+    const key = loadGeminiKey();
+    if (key) {
+      setStatus(status, "正在按名称估算热量…", true);
+      if (submit instanceof HTMLButtonElement) submit.disabled = true;
+      try {
+        model = await estimateFoodFromText(key, {
+          name: values.name,
+          amount: values.amount,
+          unit: values.unit,
+        });
+      } catch {
+        model = null;
+        setStatus(status, "模型估算失败，已改用本地估算。", false);
+      }
+      if (submit instanceof HTMLButtonElement) submit.disabled = false;
+    }
+  }
+
+  const nutrition = nutritionFromManual(values, model);
+  addFoodEntry({
+    id: newFoodId(),
+    date: localDateISO(),
+    mealType: values.mealType,
+    name: values.name,
+    grams: nutrition.grams,
+    kcal: nutrition.kcal,
+    protein: nutrition.protein,
+    carbs: nutrition.carbs,
+    fat: nutrition.fat,
+    source: "manual",
+    amount: values.amount,
+    unit: values.unit,
+    kcalEstimated: nutrition.kcalEstimated,
+  });
+  refreshFoodPage();
+}
+
+function refreshManualPreview(form: HTMLFormElement): void {
+  const preview = form.querySelector("#manual-estimate");
+  if (!(preview instanceof HTMLElement)) return;
+  const values = readManualForm(form);
+  if (!values.name) {
+    preview.hidden = false;
+    preview.classList.remove("ok");
+    preview.textContent = "填写名称和数量后，会按名称估算热量。";
+    return;
+  }
+  const nutrition = nutritionFromManual(values, null);
+  preview.hidden = false;
+  preview.classList.add("ok");
+  if (!nutrition.kcalEstimated) {
+    preview.textContent = `将使用你填的 ${nutrition.kcal} kcal。`;
+    return;
+  }
+  const source = nutrition.matched ? `按「${nutrition.matched}」估算` : "按常见食物估算";
+  preview.textContent = `约 ${nutrition.kcal} kcal · ${formatAmount(values.amount, values.unit)}（${source}）`;
+}
+
+function updateAmountPlaceholder(form: HTMLFormElement): void {
+  const amount = form.querySelector('input[name="amount"]');
+  if (!(amount instanceof HTMLInputElement)) return;
+  const unit = parseFoodAmountUnit(String(new FormData(form).get("unit") ?? "g"));
+  amount.placeholder = unit === "piece" ? "1" : "100";
+}
+
+type ManualFormValues = {
+  name: string;
+  mealType: MealType;
+  amount: number;
+  unit: FoodAmountUnit;
+  kcalText: string;
+  proteinText: string;
+  carbsText: string;
+  fatText: string;
+};
+
+function readManualForm(form: HTMLFormElement): ManualFormValues {
+  const data = new FormData(form);
+  const unit = parseFoodAmountUnit(String(data.get("unit") ?? "g"));
+  const amountRaw = Number(data.get("amount"));
+  const fallback = unit === "piece" ? 1 : 100;
+  return {
+    name: String(data.get("name") ?? "").trim(),
+    mealType: asMealType(String(data.get("mealType"))),
+    amount: Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw : fallback,
+    unit,
+    kcalText: String(data.get("kcal") ?? "").trim(),
+    proteinText: String(data.get("protein") ?? "").trim(),
+    carbsText: String(data.get("carbs") ?? "").trim(),
+    fatText: String(data.get("fat") ?? "").trim(),
+  };
+}
+
+function nutritionFromManual(
+  values: ManualFormValues,
+  model: FoodAnalysisJson | null,
+): ManualFoodEstimate & { kcalEstimated: boolean } {
+  const local = estimateManualFood(values.name, values.amount, values.unit);
+  const kcalFilled = optionalNumber(values.kcalText);
+  let grams = local.grams;
+  let kcal = local.kcal;
+  let protein = local.protein;
+  let carbs = local.carbs;
+  let fat = local.fat;
+  let kcalEstimated = true;
+
+  if (model) {
+    grams = model.grams > 0 ? Math.round(model.grams) : grams;
+    kcal = Math.round(model.kcal);
+    protein = model.protein;
+    carbs = model.carbs;
+    fat = model.fat;
+  } else if (kcalFilled !== null) {
+    kcal = Math.round(kcalFilled);
+    kcalEstimated = false;
+    if (!anyMacroFilled(values)) {
+      const split = macrosFromKcal(kcal);
+      protein = split.protein;
+      carbs = split.carbs;
+      fat = split.fat;
+    }
+  }
+
+  if (anyMacroFilled(values)) {
+    protein = optionalNumber(values.proteinText) ?? 0;
+    carbs = optionalNumber(values.carbsText) ?? 0;
+    fat = optionalNumber(values.fatText) ?? 0;
+  }
+
+  return {
+    grams,
+    kcal,
+    protein,
+    carbs,
+    fat,
+    matched: local.matched,
+    kcalEstimated,
+  };
+}
+
+function anyMacroFilled(values: ManualFormValues): boolean {
+  return Boolean(values.proteinText || values.carbsText || values.fatText);
+}
+
+function optionalNumber(text: string): number | null {
+  if (!text) return null;
+  const value = Number(text);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function formatAmount(amount: number, unit: FoodAmountUnit): string {
+  const unitLabel = unit === "g" ? "克" : unit === "ml" ? "毫升" : "个";
+  return `${amount} ${unitLabel}`;
 }
 
 function bindReview(root: HTMLElement): void {
@@ -293,11 +470,12 @@ function renderReviewPreview(
 
 function foodRow(entry: FoodEntry): string {
   const source = entry.source === "photo" ? "拍照" : "手填";
+  const estimated = entry.kcalEstimated ? " · 估算" : "";
   return `
     <li>
       <div>
         <strong>${escapeHtml(entry.name)}</strong>
-        <span>${mealLabel(entry.mealType)} · ${entry.kcal} kcal · ${entry.grams} g · ${source}</span>
+        <span>${mealLabel(entry.mealType)} · ${entry.kcal} kcal · ${formatFoodPortion(entry)} · ${source}${estimated}</span>
       </div>
       <button type="button" class="text-button" data-delete-food="${entry.id}">删除</button>
     </li>

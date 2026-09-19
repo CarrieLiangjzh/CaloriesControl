@@ -153,10 +153,18 @@ label.button {
   border: 0;
 }
 
+.amount-row,
 .macro-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
   gap: 8px;
+}
+
+.amount-row {
+  grid-template-columns: 1.4fr 1fr;
+}
+
+.macro-row {
+  grid-template-columns: 1fr 1fr 1fr;
 }
 
 .food-list {
@@ -265,6 +273,17 @@ fieldset.card legend {
 }
 
 .status.ok {
+  color: var(--accent);
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.hint.ok {
   color: var(--accent);
 }
 

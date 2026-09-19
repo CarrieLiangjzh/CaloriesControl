@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   defaultMealType,
+  formatFoodPortion,
+  parseFoodAmountUnit,
   scaleNutrition,
   sumFood,
   type FoodEntry,
@@ -61,6 +63,33 @@ describe("parseFoodAnalysisText", () => {
 describe("defaultMealType", () => {
   it("picks lunch around noon", () => {
     expect(defaultMealType(new Date(2026, 8, 16, 12, 0))).toBe("lunch");
+  });
+});
+
+describe("food portion", () => {
+  it("parses amount units", () => {
+    expect(parseFoodAmountUnit("ml")).toBe("ml");
+    expect(parseFoodAmountUnit("piece")).toBe("piece");
+    expect(parseFoodAmountUnit("other")).toBe("g");
+  });
+
+  it("prefers the typed amount and unit", () => {
+    expect(
+      formatFoodPortion({
+        id: "1",
+        date: "2026-09-19",
+        mealType: "snack",
+        name: "牛奶",
+        grams: 258,
+        kcal: 139,
+        protein: 8,
+        carbs: 13,
+        fat: 6,
+        source: "manual",
+        amount: 250,
+        unit: "ml",
+      }),
+    ).toBe("250 毫升");
   });
 });
 
