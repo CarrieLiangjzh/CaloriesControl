@@ -78,7 +78,7 @@ export function renderProfile(): string {
       </form>
       <form id="gemini-key-form" class="stack">
         <h2>Gemini API Key</h2>
-        <p>${loadGeminiKey() ? escapeHtml(geminiKeyHint()) : "拍照识别需要自己的 Key。在 Google AI Studio 创建后粘贴到这里，只存在本机。"}</p>
+        <p>${loadGeminiKey() ? escapeHtml(geminiKeyHint()) : "拍照识别需要自己的 Key。在 Google AI Studio 创建后粘贴到这里，只存在本机。本站使用 Gemini 3.5 Flash。"}</p>
         <label class="field">
           <span>API Key</span>
           <input name="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="${loadGeminiKey() ? "已保存，留空再保存则不改" : "粘贴 Key"}" />

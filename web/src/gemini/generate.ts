@@ -1,4 +1,4 @@
-import { GEMINI_MODEL } from "./config";
+import { GEMINI_MODELS } from "./config";
 
 export type GeminiPart = { text: string } | { inline_data: { mime_type: string; data: string } };
 
@@ -8,23 +8,41 @@ export async function generateGeminiText(
   temperature = 0.2,
 ): Promise<string> {
   if (!apiKey) throw new Error("还没有填写 Gemini API Key。");
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts }],
-      generationConfig: {
-        temperature,
-        responseMimeType: "application/json",
-      },
-    }),
-  });
-  if (!response.ok) {
-    throw new Error(await geminiErrorMessage(response));
+  let lastError = "识别失败。";
+  for (const model of GEMINI_MODELS) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts }],
+        generationConfig: {
+          temperature,
+          responseMimeType: "application/json",
+        },
+      }),
+    });
+    if (response.ok) {
+      return extractText(await response.json());
+    }
+    lastError = await geminiErrorMessage(response);
+    if (!shouldTryNextModel(response.status, lastError)) {
+      throw new Error(lastError);
+    }
   }
-  const payload: unknown = await response.json();
-  return extractText(payload);
+  throw new Error(lastError);
+}
+
+function shouldTryNextModel(status: number, message: string): boolean {
+  if (status === 429) return false;
+  const lower = message.toLowerCase();
+  return (
+    status === 404 ||
+    lower.includes("not found") ||
+    lower.includes("not supported") ||
+    lower.includes("not available") ||
+    lower.includes("不支持")
+  );
 }
 
 export function extractText(payload: unknown): string {

@@ -153,7 +153,7 @@ function renderWatchCard(health: HealthDayCache | null): string {
   const ios = typeof navigator !== "undefined" && isAppleMobile();
   const syncHref = ios ? runShortcutHref() : "#/sync";
   const syncHint = ios
-    ? "会打开快捷指令读取健康再跳回。手表没电或读失败也会回来，然后请手填。"
+    ? "会打开快捷指令读取健康。请把指令最后一步改成「停止并输出」数字，本页会把你带回来。"
     : "请在 iPhone 的 Safari 里点同步。电脑上可手填，或打开同步页查看安装步骤。";
   const sourceLabel =
     health?.source === "shortcut"

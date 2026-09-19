@@ -1,4 +1,7 @@
-export const GEMINI_MODEL = "gemini-2.5-flash";
+export const GEMINI_MODELS = [
+  "gemini-3.5-flash",
+  "gemini-3-flash-preview",
+] as const;
 export const GEMINI_MAX_EDGE = 1280;
 
 export const FOOD_ANALYSIS_PROMPT = `你是营养估算助手。根据食物照片估算整份食物的重量和营养。

@@ -1,6 +1,6 @@
 # Gemini
 
-浏览器直连 `gemini-2.5-flash`。Key 存在本机 `localStorage`，请求不经过自建后端。
+浏览器直连 `gemini-3.5-flash`（不可用时再试 `gemini-3-flash-preview`）。Key 存在本机 `localStorage`，请求不经过自建后端。
 
 - 最长边压缩到 1280，JPEG 质量 0.82；照片不落盘
 - 食物识别：菜名、克数、热量、宏量、confidence

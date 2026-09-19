@@ -34,13 +34,52 @@ export function parseRoute(
   }
   const parts = url.pathname.replace(/^\//, "").split("/").filter(Boolean);
   const segment = parts[0] || "today";
-  const name = NAMES.has(segment as RouteName)
+  let name = NAMES.has(segment as RouteName)
     ? (segment as RouteName)
     : "today";
   if (name === "sync") {
     applySyncPathParams(parts, url.searchParams);
   }
+  applyShortcutCallbackResult(url.searchParams);
+  if (
+    name !== "sync" &&
+    (url.searchParams.get("activeKcal") ||
+      url.searchParams.get("health") === "failed")
+  ) {
+    name = "sync";
+  }
   return { name, params: url.searchParams };
+}
+
+function applyShortcutCallbackResult(params: URLSearchParams): void {
+  const raw = params.get("result") ?? params.get("x-result") ?? "";
+  if (!raw.trim()) return;
+  let decoded = raw.trim();
+  try {
+    decoded = decodeURIComponent(decoded.replace(/\+/g, " "));
+  } catch {
+    decoded = raw.trim();
+  }
+  const marker = "#/sync/";
+  const hashIndex = decoded.indexOf(marker);
+  if (hashIndex >= 0) {
+    applySyncPathParams(
+      ["sync", ...decoded.slice(hashIndex + marker.length).split("/")],
+      params,
+    );
+    return;
+  }
+  const pieces = decoded.split("/").filter(Boolean);
+  const first = pieces[0] ?? "";
+  const second = pieces[1] ?? "";
+  if (pieces.length >= 2 && isSyncDateToken(first)) {
+    if (!params.get("date")) params.set("date", first);
+    if (!params.get("activeKcal")) params.set("activeKcal", second);
+    return;
+  }
+  if (!params.get("activeKcal") && /^\d+([.,]\d+)?$/.test(decoded)) {
+    params.set("activeKcal", decoded);
+  }
 }
 
 function applySyncPathParams(

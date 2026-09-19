@@ -27,6 +27,12 @@ describe("parseRoute", () => {
     expect(route.params.get("activeKcal")).toBeNull();
   });
 
+  it("reads x-callback result as today's kcal", () => {
+    const route = parseRoute("#/today", "?result=153.381");
+    expect(route.name).toBe("sync");
+    expect(route.params.get("activeKcal")).toBe("153.381");
+  });
+
   it("marks a failed health callback", () => {
     const route = parseRoute("#/sync/failed");
     expect(route.name).toBe("sync");

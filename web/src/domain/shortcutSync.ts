@@ -191,6 +191,7 @@ export function callbackBaseUrl(
 
 export function runShortcutHref(baseUrl = callbackBaseUrl()): string {
   const name = encodeURIComponent(SHORTCUT_NAME);
-  const input = encodeURIComponent(baseUrl);
-  return `shortcuts://run-shortcut?name=${name}&input=${input}`;
+  const success = encodeURIComponent(baseUrl);
+  const failed = encodeURIComponent(`${baseUrl}#/sync/failed`);
+  return `shortcuts://x-callback-url/run-shortcut?name=${name}&x-success=${success}&x-cancel=${failed}&x-error=${failed}`;
 }
